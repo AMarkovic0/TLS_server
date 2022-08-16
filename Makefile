@@ -1,6 +1,6 @@
 CC = g++
 TARGET = main
-MAINFILE = ./iotserver.cpp
+MAINFILE = ./main.cpp
 
 SRCDIR = ./src/
 INCDIRS = /usr/include/lua5.1 ./inc/
