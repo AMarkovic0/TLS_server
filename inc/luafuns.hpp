@@ -4,7 +4,7 @@
 #include "luaclass.hpp"
 #include "tcp_server.h"
 
-#define LUA_FILE_NAME "handler.lua"
+#define LUA_FILE_NAME "lua/lua_entry.lua"
 #define LUA_RECEIVED_FROM_NETWORK "ReceivedFromNetwork"
 #define LUA_SEND_TO_NETWORK "SendToNetwork"
 
