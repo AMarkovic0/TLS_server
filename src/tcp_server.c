@@ -5,7 +5,6 @@ static uint8_t cnt = 0;
 static int sockfd;
 static struct sockaddr_in server_addr;
 
-static int new_sockets[NUM_OF_DEVICES];
 static struct sockaddr_in new_addresses[NUM_OF_DEVICES];
 static struct pollfd fds[NUM_OF_DEVICES+1];
 
@@ -61,21 +60,20 @@ uint8_t tcp_server_listen(_logs log)
 
 uint8_t tcp_server_accept(_logs log)
 {
-	int *new_socket = &new_sockets[cnt];
 	struct sockaddr_in *new_addr = &new_addresses[cnt];
 	socklen_t addr_size = sizeof(*new_addr);
 	cnt++;
 
-	*new_socket = accept(sockfd, (struct sockaddr*)new_addr, &addr_size);
-	if((*new_socket < 0) && log) {
+	int new_socket = accept(sockfd, (struct sockaddr*)new_addr, &addr_size);
+	if((new_socket < 0) && log) {
 		printf("Acception failed. \n");
-		return *new_socket;
-	} else if((*new_socket < 0) && !log) {
-		return *new_socket;
+		return new_socket;
+	} else if((new_socket < 0) && !log) {
+		return new_socket;
 	} else if(log)
 		printf("Client %d sucessfully accepted. \n", cnt);
 
-	fds[cnt].fd = *new_socket;
+	fds[cnt].fd = new_socket;
 	fds[cnt].events = POLLIN;
 
 	return 1;
@@ -94,15 +92,15 @@ ssize_t tcp_server_recv(int sockfd, char* r_buf)
 static uint8_t _check_recv(int res, _logs log)
 {
 	if(log && (res < 0) && (errno != EWOULDBLOCK)) {
-		printf("Read from connection %d failed. \n", cnt);
+		printf("Read from connection failed. \n");
 		return 1;
 	} else if ((res < 0) && (errno != EWOULDBLOCK)) {
 		return 1;
 	}
 
 	if(log && (0 == res)) {
-		printf("Clinet %d closed the connection. \n", cnt);
-		return 2;
+		printf("Clinet closed the connection. \n");
+                return 2;
 	} else if(0 == res) {
 		return 2;
 	}
@@ -130,7 +128,7 @@ void tcp_server_poll(char* r_buf, _logs log)
 			printf("Poll timeout. \n");
 		}
 
-		for(int i = 0; i < NUM_OF_DEVICES+1; i++) {
+		for(int i = 0; i < cnt+1; i++) {
 			if (POLLIN != fds[i].revents || 0 == fds[i].revents)
 				continue;
 
@@ -152,6 +150,16 @@ void tcp_server_poll(char* r_buf, _logs log)
 		if(close_connection != 0) {
 			close(fds[close_connection].fd);
 			fds[close_connection].revents = 0;
+                        if(cnt != close_connection && cnt != 1) {
+                                cnt++;
+                                memmove(&fds[close_connection], &fds[close_connection+1], cnt-(close_connection+1));
+                                memmove(
+                                        &new_addresses[close_connection-1],
+                                        &new_addresses[close_connection],
+                                        cnt-(close_connection
+                                ));
+                                cnt--;
+                        }
 			close_connection = 0;
 			cnt--;
 		}
