@@ -5,8 +5,9 @@ static uint8_t cnt = 0;
 static int sockfd;
 static struct sockaddr_in server_addr;
 
-static struct sockaddr_in new_addresses[NUM_OF_DEVICES];
-static struct pollfd fds[NUM_OF_DEVICES+1];
+static struct sockaddr_in *new_addresses;
+static struct pollfd *fds;
+static unsigned int fds_size = 0;
 
 uint8_t tcp_server_init(unsigned int port, _logs log)
 {
@@ -41,7 +42,11 @@ uint8_t tcp_server_init(unsigned int port, _logs log)
 	} else if(!check_var && log)
 		printf("Bind sucessfull \n");
 
-	return -1;
+        fds = (struct pollfd*)malloc(sizeof(struct pollfd)*NUM_OF_DEVICES);
+        new_addresses = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in)*NUM_OF_DEVICES);
+        fds_size += NUM_OF_DEVICES;
+
+	return 0;
 }
 
 uint8_t tcp_server_listen(_logs log)
@@ -62,17 +67,24 @@ uint8_t tcp_server_accept(_logs log)
 {
 	struct sockaddr_in *new_addr = &new_addresses[cnt];
 	socklen_t addr_size = sizeof(*new_addr);
-	cnt++;
 
 	int new_socket = accept(sockfd, (struct sockaddr*)new_addr, &addr_size);
+
 	if((new_socket < 0) && log) {
 		printf("Acception failed. \n");
 		return new_socket;
 	} else if((new_socket < 0) && !log) {
 		return new_socket;
-	} else if(log)
+	} else if(log) {
+                cnt++;
 		printf("Client %d sucessfully accepted. \n", cnt);
+        }
 
+        if(fds_size == cnt) {
+                fds = (struct pollfd*)realloc(fds, (fds_size+NUM_OF_DEVICES)*sizeof(struct pollfd));
+                new_addresses = (struct sockaddr_in*)realloc(new_addresses, (fds_size+NUM_OF_DEVICES)*sizeof(struct sockaddr_in));
+                fds_size += NUM_OF_DEVICES;
+        }
 	fds[cnt].fd = new_socket;
 	fds[cnt].events = POLLIN;
 
@@ -117,7 +129,7 @@ void tcp_server_poll(char* r_buf, _logs log)
 	fds[0].events = POLLIN;
 
 	for(;;) {
-		res = poll(fds, NUM_OF_DEVICES, POLL_TIMEOUT);
+		res = poll(fds, fds_size, POLL_TIMEOUT);
 
 		if(log && (res < 0)) {
 			printf("Poll failed. \n");
@@ -156,8 +168,8 @@ void tcp_server_poll(char* r_buf, _logs log)
                                 memmove(
                                         &new_addresses[close_connection-1],
                                         &new_addresses[close_connection],
-                                        cnt-(close_connection
-                                ));
+                                        cnt-(close_connection)
+                                );
                                 cnt--;
                         }
 			close_connection = 0;

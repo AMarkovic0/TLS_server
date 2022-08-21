@@ -37,7 +37,7 @@ extern "C" {
 #define MAX_IP_SIZE 15		// Size of the IPv4 address
 #define BUF_SIZE 255		// Buffer size
 #define WIFI_INTERFACE "wlp2s0" // Network interface
-#define NUM_OF_DEVICES 10	// Max clients
+#define NUM_OF_DEVICES 5	// Step for mem allocation
 #define POLL_TIMEOUT 1500	// [ms]
 
 

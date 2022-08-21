@@ -13,8 +13,10 @@ int main(int argc, char *argv[])
 
         init_lua_code();
 
-	tcp_server_init(PORT, LOG_ON);
-	tcp_server_listen(LOG_ON);
+	if(tcp_server_init(PORT, LOG_ON) == 0)
+                tcp_server_listen(LOG_ON);
+        else
+                return -1;
 
 	pthread_create(&server_thread, NULL, &connection_handler, NULL);
 	pthread_join(server_thread, NULL);
