@@ -9,38 +9,45 @@ static struct sockaddr_in *new_addresses;
 static struct pollfd *fds;
 static unsigned int fds_size = 0;
 
-uint8_t tcp_server_init(unsigned int port, _logs log)
+static int _tcp_server_init_socket(int *sock) {
+        *sock = socket(PF_INET , SOCK_STREAM , 0);
+
+	if(-1 == *sock) {
+		dbg("Socket creation failed. \n");
+		return -1;
+	} else
+		dbg( "Socket creation sucessfull. \n");
+
+
+        return 0;
+}
+
+static uint8_t _tcp_server_bind(unsigned int port, char ip[], struct sockaddr_in *server_addr) {
+	memset(server_addr, '\0', sizeof(*server_addr));
+
+        server_addr->sin_family = AF_INET;
+	server_addr->sin_port = htons(port);
+	server_addr->sin_addr.s_addr = inet_addr(ip);
+
+	if(bind(sockfd, (struct sockaddr*)server_addr , sizeof(*server_addr))) {
+		dbg("Bind failed %d. \n", errno);
+		return -1;
+	} else
+		dbg("Bind sucessfull \n");
+
+        return 0;
+}
+
+uint8_t tcp_server_init(unsigned int port)
 {
 	char ip[MAX_IP_SIZE];
-	uint8_t check_var = 0;
 
 	signal(SIGPIPE , SIG_IGN); // block SIGPIPE signal in case client disconnect
 
-	getIP(ip, log);
+	getIP(ip);
 
-	sockfd = socket(PF_INET , SOCK_STREAM , 0);
-	if(log && (-1 == sockfd)) {
-		printf("Socket creation failed. \n");
-		return -1;
-	} else if(!log && (-1 == sockfd)) {
-		return -1;
-	} else if( log )
-		printf( "Socket creation sucessfull. \n");
-
-	memset(&server_addr, '\0', sizeof(server_addr));
-
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(port);
-	server_addr.sin_addr.s_addr = inet_addr(ip);
-
-	check_var = bind(sockfd, (struct sockaddr*)&server_addr , sizeof(server_addr));
-	if(check_var && log) {
-		printf("Bind failed %d. \n", errno);
-		return -1;
-	} else if(check_var && !log) {
-		return -1;
-	} else if(!check_var && log)
-		printf("Bind sucessfull \n");
+        _tcp_server_init_socket(&sockfd);
+        _tcp_server_bind(port, ip, &server_addr);
 
         fds = (struct pollfd*)malloc(sizeof(struct pollfd)*NUM_OF_DEVICES);
         new_addresses = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in)*NUM_OF_DEVICES);
@@ -49,35 +56,31 @@ uint8_t tcp_server_init(unsigned int port, _logs log)
 	return 0;
 }
 
-uint8_t tcp_server_listen(_logs log)
+uint8_t tcp_server_listen()
 {
 	uint8_t check = listen(sockfd, NUM_OF_DEVICES);
-	if(check && log) {
-		printf("Listen failed. \n");
+	if(check) {
+		dbg("Listen failed. \n");
 		return -1;
-	} else if(check && !log) {
-		return -1;
-	} else if(!check && log)
-		printf("Server listening... \n");
+	} else if(!check)
+		dbg("Server listening... \n");
 
 	return 1;
 }
 
-uint8_t tcp_server_accept(_logs log)
+uint8_t tcp_server_accept()
 {
 	struct sockaddr_in *new_addr = &new_addresses[cnt];
 	socklen_t addr_size = sizeof(*new_addr);
 
 	int new_socket = accept(sockfd, (struct sockaddr*)new_addr, &addr_size);
 
-	if((new_socket < 0) && log) {
-		printf("Acception failed. \n");
+	if(new_socket < 0) {
+		dbg("Acception failed. \n");
 		return new_socket;
-	} else if((new_socket < 0) && !log) {
-		return new_socket;
-	} else if(log) {
+	} else {
                 cnt++;
-		printf("Client %d sucessfully accepted. \n", cnt);
+		dbg("Client %d sucessfully accepted. \n", cnt);
         }
 
         if(fds_size == cnt) {
@@ -101,26 +104,22 @@ ssize_t tcp_server_recv(int sockfd, char* r_buf)
 	return recv(sockfd, r_buf, BUF_SIZE, MSG_DONTWAIT);
 }
 
-static uint8_t _check_recv(int res, _logs log)
+static uint8_t _check_recv(int res)
 {
-	if(log && (res < 0) && (errno != EWOULDBLOCK)) {
-		printf("Read from connection failed. \n");
-		return 1;
-	} else if ((res < 0) && (errno != EWOULDBLOCK)) {
+	if((res < 0) && (errno != EWOULDBLOCK)) {
+		dbg("Read from connection failed. \n");
 		return 1;
 	}
 
-	if(log && (0 == res)) {
-		printf("Clinet closed the connection. \n");
+	if(0 == res) {
+		dbg("Clinet closed the connection. \n");
                 return 2;
-	} else if(0 == res) {
-		return 2;
 	}
 
 	return 0;
 }
 
-void tcp_server_poll(char* r_buf, _logs log)
+void tcp_server_poll(char* r_buf)
 {
 	int res;
 	int close_connection = 0;
@@ -131,13 +130,11 @@ void tcp_server_poll(char* r_buf, _logs log)
 	for(;;) {
 		res = poll(fds, fds_size, POLL_TIMEOUT);
 
-		if(log && (res < 0)) {
-			printf("Poll failed. \n");
+		if(res < 0) {
+			dbg("Poll failed. \n");
 			continue;
-		} else if (res < 0){
-			continue;
-		} else if (log && (0 == res)) {
-			printf("Poll timeout. \n");
+		} else if (0 == res) {
+			dbg("Poll timeout. \n");
 		}
 
 		for(int i = 0; i < cnt+1; i++) {
@@ -147,15 +144,15 @@ void tcp_server_poll(char* r_buf, _logs log)
 			if((fds[i].fd != sockfd)) {
 				res = tcp_server_recv(fds[i].fd, r_buf);
 
-				close_connection = _check_recv(res, log);
+				close_connection = _check_recv(res);
 				if(0 != close_connection) {
 					close_connection = i;
 					break;
 				}
 
-				read_callback(r_buf, fds[i].fd, log);
+				read_callback(r_buf, fds[i].fd);
 			} else {
-				tcp_server_accept(log);
+				tcp_server_accept();
 			}
 		}
 
@@ -178,18 +175,18 @@ void tcp_server_poll(char* r_buf, _logs log)
 	}
 }
 
-uint8_t tcp_server_close(_logs log)
+uint8_t tcp_server_close()
 {
 	int res = close(sockfd);
-	if(log && (-1 == res)) {
-		printf("Socket closing failed. \n");
-	} else if(log) {
-		printf("Socket closing successful \n");
+	if(-1 == res) {
+		dbg("Socket closing failed. \n");
+	} else {
+		dbg("Socket closing successful \n");
 	}
 	return res;
 }
 
-void getIP(char* IPaddr, _logs log)
+void getIP(char* IPaddr)
 {
 	int fd;
 	struct ifreq ifr;
@@ -203,9 +200,7 @@ void getIP(char* IPaddr, _logs log)
 
 	strcpy(IPaddr, inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr));
 
-	if(log)
-		printf("Host IP Address is: %s\n", IPaddr);
+        dbg("Host IP Address is: %s\n", IPaddr);
 
 	return;
 }
-

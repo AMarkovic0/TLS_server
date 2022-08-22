@@ -34,47 +34,37 @@ extern "C" {
 #include<netdb.h>
 #include<poll.h>
 
+#include"log.h"
+
 #define MAX_IP_SIZE 15		// Size of the IPv4 address
 #define BUF_SIZE 255		// Buffer size
 #define WIFI_INTERFACE "wlp2s0" // Network interface
 #define NUM_OF_DEVICES 5	// Step for mem allocation
 #define POLL_TIMEOUT 1500	// [ms]
 
-
-// Enum that allows or restricts logging on stdout
-typedef enum logging {
-	LOG_ON = 1 ,
-	LOG_OFF = 0
-}_logs;
-
 /*
 * This function initializes and binds a TCP server
 * In:
 *	unsigned int port 	-> Port number
-*	_logs log		-> stdout log
 * Out:
 *	uint8_t check		-> success notification
 */
-uint8_t tcp_server_init(unsigned int port, _logs log);
+uint8_t tcp_server_init(unsigned int port);
 
 /*
 * Starts server listening
 * Before this function call, please initialize the server
-* In:
-*	_logs log		-> stdout log
 * Out:
 *	uint8_t check		-> success notification
 */
-uint8_t tcp_server_listen(_logs log);
+uint8_t tcp_server_listen();
 
 /*
 * Accept clinet connection and assign socket file destriptor
-* In:
-*	_logs log		-> stdout log
 * Out:
 *	uint8_t check		-> success notification
 */
-uint8_t tcp_server_accept(_logs log);
+uint8_t tcp_server_accept();
 
 /*
 * Send message to the client. Assumes connection has been established.
@@ -101,35 +91,30 @@ ssize_t tcp_server_recv(int sockfd, char* r_buf);
  * Polling function
  * In:
  * 	char* r_buf	-> Read buffer
- * 	_logs log	-> stdout log
 */
-void tcp_server_poll(char* r_buf, _logs log);
+void tcp_server_poll(char* r_buf);
 
 /* Function declaration - reading callback
  * Must be implemented
  * In:
  * 	char* r_buf	-> read buffer
  * 	int fd		-> socket file descriptor
- * 	_logs log	-> stdout log
 */
-void read_callback(char* r_buf, int fd, _logs log);
+void read_callback(char* r_buf, int fd);
 
 /*
  * Closes the server
- * In:
- * 	_logs log	-> stdout log
  * Out:
  * 	uint8_t 	-> success notification
 */
-uint8_t tcp_server_close(_logs log);
+uint8_t tcp_server_close();
 
 /*
 * Gets and writes server IP address in the IPaddr buffer
 * In:
 *	char* IPaddr	-> Address buffer
-*	_logs log	-> stdout log
 */
-void getIP(char* IPaddr, _logs log);
+void getIP(char* IPaddr);
 
 #ifdef __cplusplus
 }
