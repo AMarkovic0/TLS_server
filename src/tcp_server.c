@@ -133,8 +133,6 @@ void tcp_server_poll(char* r_buf)
 		if(res < 0) {
 			dbg("Poll failed. \n");
 			continue;
-		} else if (0 == res) {
-			dbg("Poll timeout. \n");
 		}
 
 		for(int i = 0; i < cnt+1; i++) {
@@ -157,22 +155,27 @@ void tcp_server_poll(char* r_buf)
 		}
 
 		if(close_connection != 0) {
-			close(fds[close_connection].fd);
-			fds[close_connection].revents = 0;
-                        if(cnt != close_connection && cnt != 1) {
-                                cnt++;
-                                memmove(&fds[close_connection], &fds[close_connection+1], cnt-(close_connection+1));
-                                memmove(
-                                        &new_addresses[close_connection-1],
-                                        &new_addresses[close_connection],
-                                        cnt-(close_connection)
-                                );
-                                cnt--;
-                        }
-			close_connection = 0;
-			cnt--;
+                        tcp_server_close_connection(&close_connection);
 		}
 	}
+}
+
+void tcp_server_close_connection(int *connection_id)
+{
+        close(fds[*connection_id].fd);
+        fds[*connection_id].revents = 0;
+        if(cnt != *connection_id && cnt != 1) {
+                cnt++;
+                memmove(&fds[*connection_id], &fds[*connection_id+1], cnt-(*connection_id+1));
+                memmove(
+                        &new_addresses[*connection_id-1],
+                        &new_addresses[*connection_id],
+                        cnt-*connection_id
+                );
+                cnt--;
+        }
+        *connection_id = 0;
+        cnt--;
 }
 
 uint8_t tcp_server_close()

@@ -103,6 +103,14 @@ void tcp_server_poll(char* r_buf);
 void read_callback(char* r_buf, int fd);
 
 /*
+ * Executes all needed stuffs to close tcp connection using
+ * this library
+ * In:
+ *      int *connection_id      -> connection index in arrays
+ */
+void tcp_server_close_connection(int *connection_id);
+
+/*
  * Closes the server
  * Out:
  * 	uint8_t 	-> success notification
