@@ -12,11 +12,12 @@ SRC = ./$(MAINFILE) $(addprefix $(SRCDIR), $(SRCFILES))
 INC = $(addprefix -I, $(INCDIRS))
 LIB = $(addprefix -L, $(LIBDIRS))
 LINK = -llua5.1 -lpthread
+LDFLAGS = `pkg-config --libs openssl`
 
 CFLAGS = $(LIB) $(INC) $(LINK)
 
 all:
-	$(CC) -o $(TARGET) $(SRC) $(CFLAGS)
+	$(CC) -o $(TARGET) $(SRC) $(CFLAGS) $(LDFLAGS)
 
 run:
 	./$(TARGET)
