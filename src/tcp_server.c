@@ -165,6 +165,16 @@ ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf)
         return SSL_read(ssl, r_buf, sizeof(r_buf));
 }
 
+SSL *tcp_server_get_ssl(int sockfd)
+{
+        for(int i = 0; i < fds_size; i++) {
+                if(sockfd == SSL_get_fd(ssls[i]))
+                        return ssls[i];
+        }
+
+        return NULL;
+}
+
 static uint8_t _check_recv(int res)
 {
 	if((res < 0) && (errno != EWOULDBLOCK)) {

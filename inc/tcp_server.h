@@ -123,6 +123,15 @@ ssize_t tcp_server_recv(int sockfd, char* r_buf);
 ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf);
 
 /*
+ * Returns ssl pointer for specified socket file descriptor.
+ * In:
+ *      int sockfd      -> sokcet file descriptor
+ * Out:
+ *      SSL *ret        -> address of the ssl object
+ */
+SSL *tcp_server_get_ssl(int sockfd);
+
+/*
  * Polling function
  * In:
  * 	char* r_buf	-> Read buffer
