@@ -33,6 +33,8 @@ extern "C" {
 #include<sys/ioctl.h>
 #include<netdb.h>
 #include<poll.h>
+#include<openssl/ssl.h>
+#include<openssl/err.h>
 
 #include"log.h"
 
@@ -41,6 +43,7 @@ extern "C" {
 #define WIFI_INTERFACE "wlp2s0" // Network interface
 #define NUM_OF_DEVICES 5	// Step for mem allocation
 #define POLL_TIMEOUT 1500	// [ms]
+#define LOCALHOST "127.0.0.1"   // localhost ip address
 
 /*
 * This function initializes and binds a TCP server
@@ -67,6 +70,17 @@ uint8_t tcp_server_listen();
 uint8_t tcp_server_accept();
 
 /*
+ * Create ssl context
+ */
+void create_context();
+
+/*
+ * Configuring created ssl context - set key and cert. Context must be created before this.
+ * routine is calld.
+ */
+void configure_context();
+
+/*
 * Send message to the client. Assumes connection has been established.
 * In:
 * 	int sockfd	-> socket file descriptor
@@ -75,6 +89,16 @@ uint8_t tcp_server_accept();
 *	ssize_t res	-> number of bytes sent
 */
 ssize_t tcp_server_send(int sockfd, char* w_buf);
+
+/*
+* Send message to the client via ssl. Assumes connection has been established.
+* In:
+* 	SSL *ssl	-> socket file descriptor
+*	char* w_buf	-> Message buffer pointer
+* Out:
+*	ssize_t res	-> number of bytes sent
+*/
+ssize_t tcp_server_ssl_send(SSL *ssl, char* w_buf);
 
 /*
 * Reads client message and puts the message in the buffer.
@@ -86,6 +110,17 @@ ssize_t tcp_server_send(int sockfd, char* w_buf);
 *	ssize_t ret	-> number of bytes received
 */
 ssize_t tcp_server_recv(int sockfd, char* r_buf);
+
+/*
+* Reads client message via ssl and puts the message in the buffer.
+* Assumes connection has been established.
+* In:
+* 	SSL *ssl        -> ssl descriptor
+*	char* r_buf	-> Message buffer pointer
+* Out:
+*	ssize_t ret	-> number of bytes received
+*/
+ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf);
 
 /*
  * Polling function

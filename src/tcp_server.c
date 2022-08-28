@@ -9,6 +9,10 @@ static struct sockaddr_in *new_addresses;
 static struct pollfd *fds;
 static unsigned int fds_size = 0;
 
+static SSL_CTX *ctx;
+static SSL **ssls;
+const SSL_METHOD *method;
+
 static int _tcp_server_init_socket(int *sock) {
         *sock = socket(PF_INET , SOCK_STREAM , 0);
 
@@ -38,6 +42,11 @@ static uint8_t _tcp_server_bind(unsigned int port, char ip[], struct sockaddr_in
         return 0;
 }
 
+static void _tcp_server_init_ssl() {
+        create_context();
+        configure_context();
+}
+
 uint8_t tcp_server_init(unsigned int port)
 {
 	char ip[MAX_IP_SIZE];
@@ -46,14 +55,42 @@ uint8_t tcp_server_init(unsigned int port)
 
 	getIP(ip);
 
-        _tcp_server_init_socket(&sockfd);
-        _tcp_server_bind(port, ip, &server_addr);
+        _tcp_server_init_ssl();
+        if(0 == _tcp_server_init_socket(&sockfd))
+                _tcp_server_bind(port, LOCALHOST, &server_addr);
 
         fds = (struct pollfd*)malloc(sizeof(struct pollfd)*NUM_OF_DEVICES);
+        ssls = (SSL**)malloc(NUM_OF_DEVICES*sizeof(SSL*));
         new_addresses = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in)*NUM_OF_DEVICES);
         fds_size += NUM_OF_DEVICES;
 
 	return 0;
+}
+
+void create_context()
+{
+        method = TLS_server_method();
+        ctx = SSL_CTX_new(method);
+
+        if (!ctx) {
+                perror("Unable to create SSL context");
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
+}
+
+void configure_context()
+{
+        /* Set the key and cert */
+        if (SSL_CTX_use_certificate_file(ctx, "certs/cert-localhost.pem", SSL_FILETYPE_PEM) <= 0) {
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
+
+        if (SSL_CTX_use_PrivateKey_file(ctx, "certs/key-localhost.pem", SSL_FILETYPE_PEM) <= 0 ) {
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
 }
 
 uint8_t tcp_server_listen()
@@ -84,24 +121,48 @@ uint8_t tcp_server_accept()
         }
 
         if(fds_size == cnt) {
-                fds = (struct pollfd*)realloc(fds, (fds_size+NUM_OF_DEVICES)*sizeof(struct pollfd));
-                new_addresses = (struct sockaddr_in*)realloc(new_addresses, (fds_size+NUM_OF_DEVICES)*sizeof(struct sockaddr_in));
                 fds_size += NUM_OF_DEVICES;
+                fds = (struct pollfd*)realloc(fds, (fds_size)*sizeof(struct pollfd));
+                new_addresses = (struct sockaddr_in*)realloc(
+                                new_addresses,
+                                (fds_size)*sizeof(struct sockaddr_in)
+                );
+                ssls = (SSL**)realloc(ssls, (fds_size)*sizeof(SSL*));
         }
-	fds[cnt].fd = new_socket;
+
+        fds[cnt].fd = new_socket;
 	fds[cnt].events = POLLIN;
+
+        ssls[cnt-1] = SSL_new(ctx);
+        SSL_set_fd(ssls[cnt-1], fds[cnt].fd);
+
+        if (SSL_accept(ssls[cnt-1]) <= 0)
+                ERR_print_errors_fp(stderr);
+        else {
+                dbg("SSL accept successful.\n");
+                SSL_write(ssls[cnt-1], "AAAAAA", strlen("AAAAAA"));
+        }
 
 	return 1;
 }
 
-ssize_t tcp_server_send(int sockfd, char* w_buf)
+ssize_t tcp_server_send(int sockfd, char *w_buf)
 {
 	return send(sockfd, w_buf, strlen(w_buf), 0);
 }
 
-ssize_t tcp_server_recv(int sockfd, char* r_buf)
+ssize_t tcp_server_ssl_send(SSL *ssl, char *w_buf) {
+        return SSL_write(ssl, w_buf, strlen(w_buf));
+}
+
+ssize_t tcp_server_recv(int sockfd, char *r_buf)
 {
 	return recv(sockfd, r_buf, BUF_SIZE, MSG_DONTWAIT);
+}
+
+ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf)
+{
+        return SSL_read(ssl, r_buf, sizeof(r_buf));
 }
 
 static uint8_t _check_recv(int res)
@@ -140,7 +201,7 @@ void tcp_server_poll(char* r_buf)
 				continue;
 
 			if((fds[i].fd != sockfd)) {
-				res = tcp_server_recv(fds[i].fd, r_buf);
+				res = tcp_server_ssl_recv(ssls[i-1], r_buf);
 
 				close_connection = _check_recv(res);
 				if(0 != close_connection) {
@@ -151,6 +212,7 @@ void tcp_server_poll(char* r_buf)
 				read_callback(r_buf, fds[i].fd);
 			} else {
 				tcp_server_accept();
+
 			}
 		}
 
@@ -162,6 +224,8 @@ void tcp_server_poll(char* r_buf)
 
 void tcp_server_close_connection(int *connection_id)
 {
+        SSL_shutdown(ssls[*connection_id-1]);
+        SSL_free(ssls[*connection_id-1]);
         close(fds[*connection_id].fd);
         fds[*connection_id].revents = 0;
         if(cnt != *connection_id && cnt != 1) {
@@ -170,6 +234,11 @@ void tcp_server_close_connection(int *connection_id)
                 memmove(
                         &new_addresses[*connection_id-1],
                         &new_addresses[*connection_id],
+                        cnt-*connection_id
+                );
+                memmove(
+                        &ssls[*connection_id-1],
+                        &ssls[*connection_id],
                         cnt-*connection_id
                 );
                 cnt--;
@@ -181,6 +250,7 @@ void tcp_server_close_connection(int *connection_id)
 uint8_t tcp_server_close()
 {
 	int res = close(sockfd);
+        SSL_CTX_free(ctx);
 	if(-1 == res) {
 		dbg("Socket closing failed. \n");
 	} else {
