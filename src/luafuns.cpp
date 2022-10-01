@@ -10,7 +10,7 @@ int init_lua_code()
 	lua_stack.registerFunction(LUA_RECEIVED_FROM_NETWORK, {STRING, INT}, {INT});
 
         lua_stack.setVar(std::string(LUA_SEND_TO_NETWORK), send_to_network);
-        lua_stack.setVar(std::string(LUA_SEND_TO_NETWORK), send_to_network_ssl);
+        lua_stack.setVar(std::string(LUA_SEND_TO_NETWORK_SSL), send_to_network_ssl);
 
 	if(EXIT_SUCCESS != lua_stack.exeFile(LUA_FILE_NAME, &luafile_check)) {
 		printf("LUA ERROR: Lua file %s failed to execute. \n", LUA_FILE_NAME);

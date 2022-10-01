@@ -7,6 +7,7 @@ _logs log = LOG_ON;
 void* connection_handler(void *vargp);
 
 //TODO: Implement closing signal handler
+//TODO: Implement Access-Control-Allow-Origin
 
 int main(int argc, char *argv[])
 {

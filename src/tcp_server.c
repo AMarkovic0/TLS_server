@@ -140,7 +140,6 @@ uint8_t tcp_server_accept()
                 ERR_print_errors_fp(stderr);
         else {
                 dbg("SSL accept successful.\n");
-                SSL_write(ssls[cnt-1], "AAAAAA", strlen("AAAAAA"));
         }
 
 	return 1;
@@ -211,15 +210,17 @@ void tcp_server_poll(char* r_buf)
 				continue;
 
 			if((fds[i].fd != sockfd)) {
-				res = tcp_server_ssl_recv(ssls[i-1], r_buf);
+				do {
+					res = tcp_server_ssl_recv(ssls[i-1], r_buf);
 
-				close_connection = _check_recv(res);
-				if(0 != close_connection) {
-					close_connection = i;
-					break;
-				}
+					close_connection = _check_recv(res);
+					if(0 != close_connection) {
+						close_connection = i;
+						break;
+					}
 
-				read_callback(r_buf, fds[i].fd);
+					read_callback(r_buf, fds[i].fd);
+				} while(res);
 			} else {
 				tcp_server_accept();
 
