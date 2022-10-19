@@ -1,6 +1,6 @@
 /******************************************************************************
 *
-* tcp_server.h this is a file which contains necesarry function declarations,
+* tcp_server.h this is a file which contains necessary function declarations,
 * definitions of macros and preprocessing instructions for tcp server program execution.
 * This file implements TCP server library undepndetly.
 *

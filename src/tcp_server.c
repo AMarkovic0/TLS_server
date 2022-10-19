@@ -3,7 +3,7 @@
 static int sockfd;
 static struct sockaddr_in server_addr;
 
-static struct sockaddr_in *new_addresse;
+static struct sockaddr_in *new_address;
 static struct pollfd pfd;
 
 static SSL_CTX *ctx;
@@ -48,7 +48,7 @@ static int _tcp_server_init_socket(int *sock) {
 		dbg("Socket creation failed. \n");
 		return -1;
 	} else
-		dbg( "Socket creation sucessfull. \n");
+		dbg( "Socket creation successful. \n");
 
 
         return 0;
@@ -65,7 +65,7 @@ static uint8_t _tcp_server_bind(unsigned int port, char ip[], struct sockaddr_in
 		dbg("Bind failed %d. \n", errno);
 		return -1;
 	} else
-		dbg("Bind sucessfull \n");
+		dbg("Bind successful \n");
 
         return 0;
 }
@@ -86,14 +86,14 @@ static void _accept_ssl() {
 
 static uint8_t _tcp_server_accept()
 {
-	socklen_t addr_size = sizeof(new_addresse);
-	int new_socket = accept(sockfd, (struct sockaddr*)new_addresse, &addr_size);
+	socklen_t addr_size = sizeof(new_address);
+	int new_socket = accept(sockfd, (struct sockaddr*)new_address, &addr_size);
 
 	if(new_socket < 0) {
 		dbg("Acception failed. \n");
 		return new_socket;
 	} else {
-		dbg("Client sucessfully accepted. \n");
+		dbg("Client successfully accepted. \n");
         }
 
         pfd.fd = new_socket;
