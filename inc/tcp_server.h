@@ -31,6 +31,7 @@ extern "C" {
 #include<arpa/inet.h>
 #include<net/if.h>
 #include<sys/ioctl.h>
+#include<sys/wait.h>
 #include<netdb.h>
 #include<poll.h>
 #include<openssl/ssl.h>
@@ -61,24 +62,6 @@ uint8_t tcp_server_init(unsigned int port);
 *	uint8_t check		-> success notification
 */
 uint8_t tcp_server_listen();
-
-/*
-* Accept clinet connection and assign socket file destriptor
-* Out:
-*	uint8_t check		-> success notification
-*/
-uint8_t tcp_server_accept();
-
-/*
- * Create ssl context
- */
-void create_context();
-
-/*
- * Configuring created ssl context - set key and cert. Context must be created before this.
- * routine is calld.
- */
-void configure_context();
 
 /*
 * Send message to the client. Assumes connection has been established.
@@ -123,13 +106,11 @@ ssize_t tcp_server_recv(int sockfd, char* r_buf);
 ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf);
 
 /*
- * Returns ssl pointer for specified socket file descriptor.
- * In:
- *      int sockfd      -> sokcet file descriptor
+ * Returns private variable ssl pointer for the connection.
  * Out:
  *      SSL *ret        -> address of the ssl object
  */
-SSL *tcp_server_get_ssl(int sockfd);
+SSL *tcp_server_get_ssl();
 
 /*
  * Polling function
@@ -145,14 +126,6 @@ void tcp_server_poll(char* r_buf);
  * 	int fd		-> socket file descriptor
 */
 void read_callback(char* r_buf, int fd);
-
-/*
- * Executes all needed stuffs to close tcp connection using
- * this library
- * In:
- *      int *connection_id      -> connection index in arrays
- */
-void tcp_server_close_connection(int *connection_id);
 
 /*
  * Closes the server

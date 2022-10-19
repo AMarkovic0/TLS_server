@@ -1,17 +1,45 @@
 #include "tcp_server.h"
 
-static uint8_t cnt = 0;
-
 static int sockfd;
 static struct sockaddr_in server_addr;
 
-static struct sockaddr_in *new_addresses;
-static struct pollfd *fds;
-static unsigned int fds_size = 0;
+static struct sockaddr_in *new_addresse;
+static struct pollfd pfd;
 
 static SSL_CTX *ctx;
-static SSL **ssls;
+static SSL *ssld;
 const SSL_METHOD *method;
+
+static void _create_context()
+{
+        method = TLS_server_method();
+        ctx = SSL_CTX_new(method);
+
+        if (!ctx) {
+                perror("Unable to create SSL context");
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
+}
+
+static void _configure_context()
+{
+        /* Set the key and cert */
+        if (SSL_CTX_use_certificate_file(ctx, "certs/cert-localhost.pem", SSL_FILETYPE_PEM) <= 0) {
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
+
+        if (SSL_CTX_use_PrivateKey_file(ctx, "certs/key-localhost.pem", SSL_FILETYPE_PEM) <= 0 ) {
+                ERR_print_errors_fp(stderr);
+                exit(EXIT_FAILURE);
+        }
+}
+
+static void _tcp_server_init_ssl() {
+        _create_context();
+        _configure_context();
+}
 
 static int _tcp_server_init_socket(int *sock) {
         *sock = socket(PF_INET , SOCK_STREAM , 0);
@@ -42,9 +70,104 @@ static uint8_t _tcp_server_bind(unsigned int port, char ip[], struct sockaddr_in
         return 0;
 }
 
-static void _tcp_server_init_ssl() {
-        create_context();
-        configure_context();
+
+static void _accept_ssl() {
+	ssld = SSL_new(ctx);
+        SSL_set_fd(ssld, pfd.fd);
+
+        if (SSL_accept(ssld) <= 0)
+                ERR_print_errors_fp(stderr);
+        else {
+                dbg("SSL accept successful.\n");
+        }
+
+	return;
+}
+
+static uint8_t _tcp_server_accept()
+{
+	socklen_t addr_size = sizeof(new_addresse);
+	int new_socket = accept(sockfd, (struct sockaddr*)new_addresse, &addr_size);
+
+	if(new_socket < 0) {
+		dbg("Acception failed. \n");
+		return new_socket;
+	} else {
+		dbg("Client sucessfully accepted. \n");
+        }
+
+        pfd.fd = new_socket;
+	pfd.events = POLLIN;
+
+	_accept_ssl();
+
+	return 1;
+}
+
+void _tcp_server_close_connection()
+{
+	dbg("Closing connection on socket.\n");
+
+        SSL_shutdown(ssld);
+        SSL_free(ssld);
+        close(pfd.fd);
+        pfd.revents = 0;
+
+	dbg("Returning to the parent process.\n");
+	exit(0);
+}
+
+static void _handle_connection(char* r_buf)
+{
+	int res;
+
+	_tcp_server_accept();
+
+	for(;;) {
+		res = poll(&pfd, 1, POLL_TIMEOUT);
+
+		if (res < 0) {
+			dbg("Poll failed. \n");
+			continue;
+		} else if (POLLIN != pfd.revents || 0 == pfd.revents) {
+			continue;
+		}
+
+		if ((pfd.fd != sockfd)) {
+			do {
+				res = tcp_server_ssl_recv(ssld, r_buf);
+
+				if (0 == res) {
+					_tcp_server_close_connection();
+					break;
+				} else if (0 > res) {
+					dbg("Read from connection failed. \n");
+					continue;
+				}
+
+				read_callback(r_buf, pfd.fd);
+			} while(res);
+		}
+	}
+}
+
+void getIP(char* IPaddr)
+{
+	struct ifreq ifr;
+
+	ifr.ifr_addr.sa_family = AF_INET;
+	memcpy(ifr.ifr_name, WIFI_INTERFACE, IFNAMSIZ-1);
+	ioctl(sockfd, SIOCGIFADDR, &ifr);
+	strcpy(IPaddr, inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr));
+
+        dbg("Host IP Address is: %s\n", IPaddr);
+
+	return;
+}
+
+SSL *tcp_server_get_ssl()
+{
+	return ssld;
 }
 
 uint8_t tcp_server_init(unsigned int port)
@@ -59,38 +182,7 @@ uint8_t tcp_server_init(unsigned int port)
         if(0 == _tcp_server_init_socket(&sockfd))
                 _tcp_server_bind(port, LOCALHOST, &server_addr);
 
-        fds = (struct pollfd*)malloc(sizeof(struct pollfd)*NUM_OF_DEVICES);
-        ssls = (SSL**)malloc(NUM_OF_DEVICES*sizeof(SSL*));
-        new_addresses = (struct sockaddr_in*)malloc(sizeof(struct sockaddr_in)*NUM_OF_DEVICES);
-        fds_size += NUM_OF_DEVICES;
-
 	return 0;
-}
-
-void create_context()
-{
-        method = TLS_server_method();
-        ctx = SSL_CTX_new(method);
-
-        if (!ctx) {
-                perror("Unable to create SSL context");
-                ERR_print_errors_fp(stderr);
-                exit(EXIT_FAILURE);
-        }
-}
-
-void configure_context()
-{
-        /* Set the key and cert */
-        if (SSL_CTX_use_certificate_file(ctx, "certs/cert-localhost.pem", SSL_FILETYPE_PEM) <= 0) {
-                ERR_print_errors_fp(stderr);
-                exit(EXIT_FAILURE);
-        }
-
-        if (SSL_CTX_use_PrivateKey_file(ctx, "certs/key-localhost.pem", SSL_FILETYPE_PEM) <= 0 ) {
-                ERR_print_errors_fp(stderr);
-                exit(EXIT_FAILURE);
-        }
 }
 
 uint8_t tcp_server_listen()
@@ -105,44 +197,16 @@ uint8_t tcp_server_listen()
 	return 1;
 }
 
-uint8_t tcp_server_accept()
+void tcp_server_poll(char* r_buf)
 {
-	struct sockaddr_in *new_addr = &new_addresses[cnt];
-	socklen_t addr_size = sizeof(*new_addr);
+	for (int i = 0; i < NUM_OF_DEVICES; i++) {
+		if (0 == fork()) {
+			_handle_connection(r_buf);
+		}
+	}
 
-	int new_socket = accept(sockfd, (struct sockaddr*)new_addr, &addr_size);
-
-	if(new_socket < 0) {
-		dbg("Acception failed. \n");
-		return new_socket;
-	} else {
-                cnt++;
-		dbg("Client %d sucessfully accepted. \n", cnt);
-        }
-
-        if(fds_size == cnt) {
-                fds_size += NUM_OF_DEVICES;
-                fds = (struct pollfd*)realloc(fds, (fds_size)*sizeof(struct pollfd));
-                new_addresses = (struct sockaddr_in*)realloc(
-                                new_addresses,
-                                (fds_size)*sizeof(struct sockaddr_in)
-                );
-                ssls = (SSL**)realloc(ssls, (fds_size)*sizeof(SSL*));
-        }
-
-        fds[cnt].fd = new_socket;
-	fds[cnt].events = POLLIN;
-
-        ssls[cnt-1] = SSL_new(ctx);
-        SSL_set_fd(ssls[cnt-1], fds[cnt].fd);
-
-        if (SSL_accept(ssls[cnt-1]) <= 0)
-                ERR_print_errors_fp(stderr);
-        else {
-                dbg("SSL accept successful.\n");
-        }
-
-	return 1;
+	for (int i = 0; i < NUM_OF_DEVICES; i++)
+		wait(NULL);
 }
 
 ssize_t tcp_server_send(int sockfd, char *w_buf)
@@ -164,100 +228,6 @@ ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf)
         return SSL_read(ssl, r_buf, sizeof(r_buf));
 }
 
-SSL *tcp_server_get_ssl(int sockfd)
-{
-        for(int i = 0; i < fds_size; i++) {
-                if(sockfd == SSL_get_fd(ssls[i]))
-                        return ssls[i];
-        }
-
-        return NULL;
-}
-
-static uint8_t _check_recv(int res)
-{
-	if((res < 0) && (errno != EWOULDBLOCK)) {
-		dbg("Read from connection failed. \n");
-		return 1;
-	}
-
-	if(0 == res) {
-		dbg("Clinet closed the connection. \n");
-                return 2;
-	}
-
-	return 0;
-}
-
-void tcp_server_poll(char* r_buf)
-{
-	int res;
-	int close_connection = 0;
-
-	fds[0].fd = sockfd;
-	fds[0].events = POLLIN;
-
-	for(;;) {
-		res = poll(fds, fds_size, POLL_TIMEOUT);
-
-		if(res < 0) {
-			dbg("Poll failed. \n");
-			continue;
-		}
-
-		for(int i = 0; i < cnt+1; i++) {
-			if (POLLIN != fds[i].revents || 0 == fds[i].revents)
-				continue;
-
-			if((fds[i].fd != sockfd)) {
-				do {
-					res = tcp_server_ssl_recv(ssls[i-1], r_buf);
-
-					close_connection = _check_recv(res);
-					if(0 != close_connection) {
-						close_connection = i;
-						break;
-					}
-
-					read_callback(r_buf, fds[i].fd);
-				} while(res);
-			} else {
-				tcp_server_accept();
-
-			}
-		}
-
-		if(close_connection != 0) {
-                        tcp_server_close_connection(&close_connection);
-		}
-	}
-}
-
-void tcp_server_close_connection(int *connection_id)
-{
-        SSL_shutdown(ssls[*connection_id-1]);
-        SSL_free(ssls[*connection_id-1]);
-        close(fds[*connection_id].fd);
-        fds[*connection_id].revents = 0;
-        if(cnt != *connection_id && cnt != 1) {
-                cnt++;
-                memmove(&fds[*connection_id], &fds[*connection_id+1], cnt-(*connection_id+1));
-                memmove(
-                        &new_addresses[*connection_id-1],
-                        &new_addresses[*connection_id],
-                        cnt-*connection_id
-                );
-                memmove(
-                        &ssls[*connection_id-1],
-                        &ssls[*connection_id],
-                        cnt-*connection_id
-                );
-                cnt--;
-        }
-        *connection_id = 0;
-        cnt--;
-}
-
 uint8_t tcp_server_close()
 {
 	int res = close(sockfd);
@@ -268,23 +238,4 @@ uint8_t tcp_server_close()
 		dbg("Socket closing successful \n");
 	}
 	return res;
-}
-
-void getIP(char* IPaddr)
-{
-	int fd;
-	struct ifreq ifr;
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-	ifr.ifr_addr.sa_family = AF_INET;
-	memcpy(ifr.ifr_name, WIFI_INTERFACE, IFNAMSIZ-1);
-	ioctl(fd, SIOCGIFADDR, &ifr);
-
-	close(fd);
-
-	strcpy(IPaddr, inet_ntoa(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr));
-
-        dbg("Host IP Address is: %s\n", IPaddr);
-
-	return;
 }

@@ -50,7 +50,7 @@ int send_to_network_ssl(lua_State *L)
         lua_stack.getVar(EMPTY_STRING, w_buf, 1);
         lua_stack.getVar(EMPTY_STRING, sockfd, 2);
 
-        ssl = tcp_server_get_ssl(sockfd);
+        ssl = tcp_server_get_ssl();
 
         return tcp_server_ssl_send(ssl, &w_buf[0]);
 }
