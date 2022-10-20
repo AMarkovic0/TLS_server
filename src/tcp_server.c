@@ -71,17 +71,18 @@ static uint8_t _tcp_server_bind(unsigned int port, char ip[], struct sockaddr_in
 }
 
 
-static void _accept_ssl() {
+static uint8_t _accept_ssl() {
 	ssld = SSL_new(ctx);
         SSL_set_fd(ssld, pfd.fd);
 
-        if (SSL_accept(ssld) <= 0)
+        if (SSL_accept(ssld) <= 0) {
                 ERR_print_errors_fp(stderr);
-        else {
+		return 0;
+        } else {
                 dbg("SSL accept successful.\n");
         }
 
-	return;
+	return 1;
 }
 
 static uint8_t _tcp_server_accept()
@@ -91,7 +92,7 @@ static uint8_t _tcp_server_accept()
 
 	if(new_socket < 0) {
 		dbg("Acception failed. \n");
-		return new_socket;
+		return 0;
 	} else {
 		dbg("Client successfully accepted. \n");
         }
@@ -99,9 +100,7 @@ static uint8_t _tcp_server_accept()
         pfd.fd = new_socket;
 	pfd.events = POLLIN;
 
-	_accept_ssl();
-
-	return 1;
+	return _accept_ssl() & 1;
 }
 
 void _tcp_server_close_connection()
@@ -121,7 +120,8 @@ static void _handle_connection(char* r_buf)
 {
 	int res;
 
-	_tcp_server_accept();
+	if (_tcp_server_accept());
+		// TODO: Notify connection has been established
 
 	for(;;) {
 		res = poll(&pfd, 1, POLL_TIMEOUT);
@@ -138,8 +138,8 @@ static void _handle_connection(char* r_buf)
 				res = tcp_server_ssl_recv(ssld, r_buf);
 
 				if (0 == res) {
+					// TODO: Notify connection has been closed
 					_tcp_server_close_connection();
-					break;
 				} else if (0 > res) {
 					dbg("Read from connection failed. \n");
 					continue;

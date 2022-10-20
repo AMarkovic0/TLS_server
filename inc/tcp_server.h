@@ -22,7 +22,6 @@ extern "C" {
 #include<stdint.h>
 #include<errno.h>
 #include<unistd.h>
-#include<signal.h>
 
 //Networking headers:
 #include<sys/socket.h>
