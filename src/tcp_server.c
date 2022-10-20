@@ -199,13 +199,15 @@ uint8_t tcp_server_listen()
 
 void tcp_server_poll(char* r_buf)
 {
+	int pid;
+
 	for (int i = 0; i < NUM_OF_DEVICES; i++) {
-		int pid = fork();
+		pid = fork();
 
 		if (0 > pid) {
 			dbg("Fork failed. Exiting the program.\n");
 			exit(EXIT_FAILURE);
-		} else if (0 == fork()) {
+		} else if (0 == pid) {
 			_handle_connection(r_buf);
 		}
 	}
