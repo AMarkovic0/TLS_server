@@ -121,7 +121,7 @@ static void _handle_connection(char* r_buf)
 	int res;
 
 	if (_tcp_server_accept());
-		// TODO: Notify connection has been established
+		kill(getppid(), SIGUSR1);
 
 	for(;;) {
 		res = poll(&pfd, 1, POLL_TIMEOUT);
@@ -138,7 +138,7 @@ static void _handle_connection(char* r_buf)
 				res = tcp_server_ssl_recv(ssld, r_buf);
 
 				if (0 == res) {
-					// TODO: Notify connection has been closed
+					kill(getppid(), SIGUSR2);
 					_tcp_server_close_connection();
 				} else if (0 > res) {
 					dbg("Read from connection failed. \n");
@@ -197,6 +197,18 @@ uint8_t tcp_server_listen()
 	return 1;
 }
 
+static void connection_counter(int sig)
+{
+	// Do I really need volatile?
+	static volatile unsigned int cnt = 0;
+
+	if (SIGUSR1 == sig) {
+		cnt++;
+	} else if (SIGUSR2 == sig) {
+		cnt--;
+	}
+}
+
 void tcp_server_poll(char* r_buf)
 {
 	int pid;
@@ -211,6 +223,11 @@ void tcp_server_poll(char* r_buf)
 			_handle_connection(r_buf);
 		}
 	}
+
+	struct sigaction sa;
+	sa.sa_handler = &connection_counter;
+	sigaction(SIGUSR1, &sa, NULL);
+	sigaction(SIGUSR2, &sa, NULL);
 
 	for (int i = 0; i < NUM_OF_DEVICES; i++)
 		wait(NULL);
