@@ -114,7 +114,7 @@ void _tcp_server_close_connection()
         pfd.revents = 0;
 
 	dbg("Returning to the parent process.\n");
-	exit(0);
+	exit(EXIT_SUCCESS);
 }
 
 static void _handle_connection(char* r_buf)
@@ -200,7 +200,12 @@ uint8_t tcp_server_listen()
 void tcp_server_poll(char* r_buf)
 {
 	for (int i = 0; i < NUM_OF_DEVICES; i++) {
-		if (0 == fork()) {
+		int pid = fork();
+
+		if (0 > pid) {
+			dbg("Fork failed. Exiting the program.\n");
+			exit(EXIT_FAILURE);
+		} else if (0 == fork()) {
 			_handle_connection(r_buf);
 		}
 	}
