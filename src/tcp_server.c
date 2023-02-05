@@ -142,7 +142,7 @@ static void _handle_connection(char* r_buf)
 					_tcp_server_close_connection();
 				} else if (0 > res) {
 					dbg("Read from connection failed. \n");
-					continue;
+					break;
 				}
 
 				read_callback(r_buf, pfd.fd);
@@ -176,7 +176,7 @@ uint8_t tcp_server_init(unsigned int port)
 
 	signal(SIGPIPE , SIG_IGN); // block SIGPIPE signal in case client disconnect
 
-	getIP(ip);
+	//getIP(ip);
 
         _tcp_server_init_ssl();
         if(0 == _tcp_server_init_socket(&sockfd))

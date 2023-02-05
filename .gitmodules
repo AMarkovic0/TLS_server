@@ -1,0 +1,3 @@
+[submodule "cpp_lua_interface"]
+	path = cpp_lua_interface
+	url = git@github.com:AMarkovic0/cpp_lua_interface.git

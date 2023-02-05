@@ -43,7 +43,7 @@ extern "C" {
 #define WIFI_INTERFACE "wlp2s0" // Network interface
 #define NUM_OF_DEVICES 5	// Step for mem allocation
 #define POLL_TIMEOUT 1500	// [ms]
-#define LOCALHOST (char*)"127.0.0.1"   // localhost ip address
+#define LOCALHOST (char*)"0.0.0.0"   // localhost ip address
 
 /*
 * This function initializes and binds a TCP server
