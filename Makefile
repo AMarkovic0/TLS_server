@@ -32,4 +32,11 @@ run:
 
 clean:
 	rm ./$(TARGET)
+	for lib_dir in $(MY_LIBS) ; do \
+		cd $$lib_dir ; \
+		make clean ; \
+		cd .. ; \
+	done
+
+
 
