@@ -24,9 +24,7 @@ all: libs
 
 libs:
 	for lib_dir in $(MY_LIBS) ; do \
-		cd $$lib_dir ; \
-		make lib ; \
-		cd .. ; \
+		make -C $$lib_dir lib ; \
 	done
 
 run:
@@ -35,10 +33,5 @@ run:
 clean:
 	rm ./$(TARGET)
 	for lib_dir in $(MY_LIBS) ; do \
-		cd $$lib_dir ; \
-		make clean ; \
-		cd .. ; \
+		make -C $$lib_dir clean; \
 	done
-
-
-
