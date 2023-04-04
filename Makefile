@@ -17,6 +17,8 @@ LDFLAGS = `pkg-config --libs openssl`
 
 CFLAGS = $(LIB) $(INC) $(LINK)
 
+.PHONY: clean run
+
 all: libs
 	$(CC) -o $(TARGET) $(SRC) $(CFLAGS) $(LDFLAGS)
 
