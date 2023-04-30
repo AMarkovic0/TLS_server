@@ -11,6 +11,7 @@ int init_lua_code()
 
         lua_stack.setVar(std::string(LUA_SEND_TO_NETWORK), send_to_network);
         lua_stack.setVar(std::string(LUA_SEND_TO_NETWORK_SSL), send_to_network_ssl);
+        lua_stack.setVar(std::string(LUA_CLOSE_CONNECTION), close_connection);
 
 	if(EXIT_SUCCESS != lua_stack.exeFile(LUA_FILE_NAME, &luafile_check)) {
 		printf("LUA ERROR: Lua file %s failed to execute. \n", LUA_FILE_NAME);
@@ -53,4 +54,13 @@ int send_to_network_ssl(lua_State *L)
         ssl = tcp_server_get_ssl();
 
         return tcp_server_ssl_send(ssl, &w_buf[0]);
+}
+
+int close_connection(lua_State *L)
+{
+	int sockfd;
+
+        lua_stack.getVar(EMPTY_STRING, sockfd, 1);
+	tcp_server_close_connection(sockfd);
+	return 0;
 }

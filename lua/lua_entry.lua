@@ -24,6 +24,7 @@ function client:handleClient(buf, fd)
 		print("Server is responding to ", self.buffer)
 		client:sendResponse(fd)
 		self.buffer = ""
+		CloseConnection(fd)
 	end
 end
 

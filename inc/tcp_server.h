@@ -127,6 +127,13 @@ void tcp_server_poll(char* r_buf);
 void read_callback(char* r_buf, int fd);
 
 /*
+ * Closes socket connection
+ * In:
+ * 	int fd		-> socket file descriptor
+*/
+void tcp_server_close_connection(int fd);
+
+/*
  * Closes the server
  * Out:
  * 	uint8_t 	-> success notification

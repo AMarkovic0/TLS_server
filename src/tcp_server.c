@@ -103,19 +103,6 @@ static uint8_t _tcp_server_accept()
 	return _accept_ssl() & 1;
 }
 
-void _tcp_server_close_connection()
-{
-	dbg("Closing connection on socket.\n");
-
-        SSL_shutdown(ssld);
-        SSL_free(ssld);
-        close(pfd.fd);
-        pfd.revents = 0;
-
-	dbg("Returning to the parent process.\n");
-	exit(EXIT_SUCCESS);
-}
-
 static void _handle_connection(char* r_buf)
 {
 	int res;
@@ -139,7 +126,7 @@ static void _handle_connection(char* r_buf)
 
 				if (0 == res) {
 					// TODO: Notify connection has been closed
-					_tcp_server_close_connection();
+					tcp_server_close_connection(pfd.fd);
 				} else if (0 > res) {
 					dbg("Read from connection failed. \n");
 					break;
@@ -233,6 +220,19 @@ ssize_t tcp_server_recv(int sockfd, char *r_buf)
 ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf)
 {
         return SSL_read(ssl, r_buf, sizeof(r_buf));
+}
+
+void tcp_server_close_connection(int fd)
+{
+	dbg("Closing connection on socket.\n");
+
+        SSL_shutdown(tcp_server_get_ssl());
+        SSL_free(tcp_server_get_ssl());
+        close(fd);
+        pfd.revents = 0;
+
+	dbg("Returning to the parent process.\n");
+	exit(EXIT_SUCCESS);
 }
 
 uint8_t tcp_server_close()
