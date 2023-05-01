@@ -7,7 +7,7 @@ MY_LIBS = ./cpp_lua_interface/
 INCDIRS = /usr/include/lua5.1 ./inc/ $(addsuffix inc/, $(MY_LIBS))
 LIBDIRS = /usr/bin/ ./cpp_lua_interface
 
-SRCFILES = tcp_server.c luafuns.cpp log.c
+SRCFILES = tcp_server.c luafuns.cpp ipc_client.c log.c
 
 SRC = ./$(MAINFILE) $(addprefix $(SRCDIR), $(SRCFILES))
 INC = $(addprefix -I, $(INCDIRS))

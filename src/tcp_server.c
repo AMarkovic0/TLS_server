@@ -50,7 +50,6 @@ static int _tcp_server_init_socket(int *sock) {
 	} else
 		dbg( "Socket creation successful. \n");
 
-
         return 0;
 }
 
@@ -107,8 +106,8 @@ static void _handle_connection(char* r_buf)
 {
 	int res;
 
-	if (_tcp_server_accept());
-		// TODO: Notify connection has been established
+	if (_tcp_server_accept())
+		ipc_client_send(IPC_REPORT_ESTABLISHED);
 
 	for(;;) {
 		res = poll(&pfd, 1, POLL_TIMEOUT);
@@ -125,7 +124,6 @@ static void _handle_connection(char* r_buf)
 				res = tcp_server_ssl_recv(ssld, r_buf);
 
 				if (0 == res) {
-					// TODO: Notify connection has been closed
 					tcp_server_close_connection(pfd.fd);
 				} else if (0 > res) {
 					dbg("Read from connection failed. \n");
@@ -163,11 +161,10 @@ uint8_t tcp_server_init(unsigned int port)
 
 	signal(SIGPIPE , SIG_IGN); // block SIGPIPE signal in case client disconnect
 
-	//getIP(ip);
-
         _tcp_server_init_ssl();
-        if(0 == _tcp_server_init_socket(&sockfd))
+        if(0 == _tcp_server_init_socket(&sockfd)) {
                 _tcp_server_bind(port, LOCALHOST, &server_addr);
+	}
 
 	return 0;
 }
@@ -195,6 +192,8 @@ void tcp_server_poll(char* r_buf)
 			dbg("Fork failed. Exiting the program.\n");
 			exit(EXIT_FAILURE);
 		} else if (0 == pid) {
+			ipc_client_init();
+			ipc_client_connect();
 			_handle_connection(r_buf);
 		}
 	}
@@ -230,6 +229,8 @@ void tcp_server_close_connection(int fd)
         SSL_free(tcp_server_get_ssl());
         close(fd);
         pfd.revents = 0;
+	ipc_client_send(IPC_REPORT_CLOSED);
+	ipc_client_close();
 
 	dbg("Returning to the parent process.\n");
 	exit(EXIT_SUCCESS);

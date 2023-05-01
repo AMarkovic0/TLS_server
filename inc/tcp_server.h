@@ -36,6 +36,7 @@ extern "C" {
 #include<openssl/ssl.h>
 #include<openssl/err.h>
 
+#include"ipc_client.h"
 #include"log.h"
 
 #define MAX_IP_SIZE 15		// Size of the IPv4 address
