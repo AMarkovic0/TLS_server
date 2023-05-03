@@ -218,7 +218,7 @@ ssize_t tcp_server_recv(int sockfd, char *r_buf)
 
 ssize_t tcp_server_ssl_recv(SSL *ssl, char *r_buf)
 {
-        return SSL_read(ssl, r_buf, sizeof(r_buf));
+        return SSL_read(ssl, r_buf, BUF_SIZE);
 }
 
 void tcp_server_close_connection(int fd)
